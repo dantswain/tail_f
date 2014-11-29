@@ -2,6 +2,8 @@
 defmodule TailFServer do
   use GenServer
 
+  @timeout_now 0
+
   defmodule State do
     defstruct path: "", io: nil, read_period: 0, lines: nil, partial: ""
   end
@@ -16,7 +18,7 @@ defmodule TailFServer do
             read_period: read_period,
             lines: :queue.new,
             partial: ""},
-     0}
+     @timeout_now}
   end
 
   def handle_info(:timeout,
@@ -31,7 +33,7 @@ defmodule TailFServer do
 
   def handle_call(:get_line, _from, state = %State{lines: lines}) do
     {line, lines_out} = out_line(lines)
-    {:reply, line, %{state | lines: lines_out}, 0}
+    {:reply, line, %{state | lines: lines_out}, @timeout_now}
   end
 
   ############################################################
