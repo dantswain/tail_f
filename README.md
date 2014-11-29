@@ -20,7 +20,6 @@ oldest line in the queue.
 
 Currently does not handle the case where the file changes
 out from underneath the descriptor.  That is, it currently
-implements `tail -f` but not `tail -F`.  I'm also not 100%
-sure it will handle partial lines (i.e., read before the
-line is completely written).
+implements `tail -f` but not `tail -F`.
 
+TailF does handle partial lines (see test code).

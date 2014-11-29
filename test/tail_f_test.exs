@@ -19,7 +19,7 @@ defmodule TailFTest do
     end
   end
 
-  setup_all do
+  setup do
     File.rm_rf(@test_dir)
     File.mkdir_p(@test_dir)
     File.write(@short_file,
@@ -49,5 +49,29 @@ defmodule TailFTest do
     assert "Existing content 1" == TailF.get_line(pid)
     assert "Existing content 2" == TailF.get_line(pid)
     assert nil == TailF.get_line(pid)
+  end
+
+  test "partial line write" do
+    File.rm(@empty_file)
+    File.touch(@empty_file)
+
+    {:ok, pid} = TailF.new(@empty_file, 5)
+    nil = TailF.get_line(pid)
+
+    {:ok, f} = File.open(@empty_file, [:append])
+    :ok = IO.binwrite(f, "partial line")
+
+    :timer.sleep(20)
+    assert nil == TailF.get_line(pid)
+
+    :ok = IO.binwrite(f, " compl")
+    :timer.sleep(20)
+    assert nil == TailF.get_line(pid)
+
+    :ok = IO.binwrite(f, "eted\n")
+    File.close(f)
+
+    :timer.sleep(20)
+    assert "partial line completed" == TailF.get_line(pid)
   end
 end
