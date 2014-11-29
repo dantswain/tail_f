@@ -6,6 +6,8 @@ defmodule TailFServer do
     defstruct path: "", io: nil, read_period: 0, lines: nil, partial: ""
   end
 
+  ############################################################
+  # GenServer callbacks
   def init({path, read_period}) do
     {:ok, io} = File.open(path, [:read])
     {:ok,
@@ -22,34 +24,38 @@ defmodule TailFServer do
                                  read_period: read_period,
                                  lines: lines,
                                  partial: partial}) do
-    {lines_out, partial_out} = case do_read(io, partial) do
-                  :eof -> {lines, partial}
-                  {:full, line} -> {:queue.in(line, lines), ""}
-                  {:partial, partial_line} -> {lines, partial_line}
-                end
+    {maybe_line, partial_out} = do_read(io, partial)
+    lines_out = ingest_line(lines, maybe_line)
     {:noreply, %{state | lines: lines_out, partial: partial_out}, read_period}
   end
 
   def handle_call(:get_line, _from, state = %State{lines: lines}) do
-    {line, lines_out} = case :queue.out(lines) do
-                  {:empty, l_out} ->
-                    {nil, l_out}
-                  {{:value, line}, l_out} ->
-                    {line, l_out}
-                end
+    {line, lines_out} = out_line(lines)
     {:reply, line, %{state | lines: lines_out}, 0}
   end
 
+  ############################################################
+  # implementation
   defp do_read(io, partial) do
     handle_read(IO.binread(io, :line), partial)
   end
 
-  defp handle_read(:eof, partial), do: {:partial, partial}
+  defp handle_read(:eof, partial), do: {nil, partial}
   defp handle_read(string, partial) do
     case String.ends_with?(string, "\n") do
-      true -> {:full, partial <> String.rstrip(string)}
-      false -> {:partial, partial <> string}
+      true -> {partial <> String.rstrip(string), ""}
+      false -> {nil, partial <> string}
     end
   end
+
+  defp out_line(lines) do
+    case :queue.out(lines) do
+      {:empty, l_out} -> {nil, l_out}
+      {{:value, line}, l_out} -> {line, l_out}
+    end
+  end
+
+  defp ingest_line(lines, nil), do: lines
+  defp ingest_line(lines, line), do: :queue.in(line, lines)
 end
 
