@@ -23,3 +23,8 @@ out from underneath the descriptor.  That is, it currently
 implements `tail -f` but not `tail -F`.
 
 TailF does handle partial lines (see test code).
+
+The initial read can be limited to the last n lines by
+using `TailF.new("/path/to/file", n)`.  The default is
+`n = 10`.  To read the whole file, use
+`TailF.new("/path/to/file", :all)`.
