@@ -10,14 +10,17 @@ defmodule TailFServer do
 
   ############################################################
   # GenServer callbacks
-  def init({path, read_period}) do
+  def init({path, num_lines, read_period}) do
     {:ok, io} = File.open(path, [:read])
+    {read_lines, partial_out} = do_initial_read(io, num_lines)
+    lines_out = ingest_lines(:queue.new, read_lines)
+
     {:ok,
      %State{path: path,
             io: io,
             read_period: read_period,
-            lines: :queue.new,
-            partial: ""},
+            lines: lines_out,
+            partial: partial_out},
      @timeout_now}
   end
 
@@ -38,15 +41,26 @@ defmodule TailFServer do
 
   ############################################################
   # implementation
+  defp do_initial_read(io, _num_lines) do
+    handle_read(IO.binread(io, :all), "")
+  end
+
   defp do_read(io, partial) do
     handle_read(IO.binread(io, :all), partial)
   end
 
   defp handle_read(:eof, partial), do: {nil, partial}
   defp handle_read(data, partial) do
+    new_partial = partial <> String.rstrip(data)
+    maybe_lines = String.split(new_partial, "\n")
+
     case String.ends_with?(data, "\n") do
-      true -> {String.split(partial <> String.rstrip(data), "\n"), ""}
-      false -> {[], partial <> data}
+      true -> {maybe_lines, ""}
+      false ->
+          case String.contains?(data, "\n") do
+            true -> {:lists.droplast(maybe_lines), :lists.last(maybe_lines)}
+            false -> {[], new_partial}
+          end
     end
   end
 

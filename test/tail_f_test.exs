@@ -5,6 +5,7 @@ defmodule TailFTest do
   @non_existing_file Path.join(@test_dir, "doesnotexist.txt")
   @empty_file Path.join(@test_dir, "empty.txt")
   @short_file Path.join(@test_dir, "short.txt")
+  @long_file Path.join(@test_dir, "long.txt")
 
   def wait_for(_f, _delay, 0) do
     nil
@@ -68,10 +69,34 @@ defmodule TailFTest do
     :timer.sleep(20)
     assert nil == TailF.get_line(pid)
 
-    :ok = IO.binwrite(f, "eted\n")
+    :ok = IO.binwrite(f, "eted\nbut more was added")
     File.close(f)
 
     :timer.sleep(20)
-    assert "partial line completed" == TailF.get_line(pid)
+    got = wait_for(fn -> TailF.get_line(pid) end, 20, 10)
+    assert "partial line completed" == got
+  end
+
+  test "Read the whole file when N is :all" do
+    lines = Enum.map((1..100), &("Line #{&1}"))
+    File.write(@long_file, Enum.join(lines, "\n") <> "\n")
+
+    {:ok, pid} = TailF.new(@long_file, :all)
+    Enum.map lines, fn(line) ->
+      got = wait_for(fn -> TailF.get_line(pid) end, 20, 10)
+      assert line == got
+    end
+  end
+
+  test "Read only the last N lines" do
+    lines = Enum.map((1..100), &("Line #{&1}"))
+    File.write(@long_file, Enum.join(lines, "\n") <> "\n")
+
+    {:ok, pid} = TailF.new(@long_file, 10)
+    expects = :lists.nthtail(90, lines)
+    Enum.map expects, fn(line) ->
+      got = wait_for(fn -> TailF.get_line(pid) end, 20, 10)
+      assert line == got
+    end
   end
 end
