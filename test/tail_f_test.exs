@@ -86,6 +86,7 @@ defmodule TailFTest do
       got = wait_for(fn -> TailF.get_line(pid) end, 20, 10)
       assert line == got
     end
+    assert nil = TailF.get_line(pid)
   end
 
   test "Read only the last N lines" do
@@ -98,5 +99,6 @@ defmodule TailFTest do
       got = wait_for(fn -> TailF.get_line(pid) end, 20, 10)
       assert line == got
     end
+    assert nil = TailF.get_line(pid)
   end
 end
