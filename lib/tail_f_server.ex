@@ -41,19 +41,26 @@ defmodule TailFServer do
 
   ############################################################
   # implementation
-  defp do_initial_read(io, _num_lines) do
-    next_initial_read(io, handle_read(IO.binread(io, :line), ""))
+  defp do_initial_read(io, num_lines) do
+    next_initial_read(io, num_lines, handle_read(IO.binread(io, :line), ""))
   end
 
-  defp next_initial_read(_io, {[], partial}) do
+  defp next_initial_read(_io, _num_lines, {[], partial}) do
     {[], partial}
   end
-  defp next_initial_read(io, {lines, partial}) do
+  defp next_initial_read(io, num_lines, {lines, partial}) do
     case handle_read(IO.binread(io, :line), partial) do
       {[], new_partial} ->
         {lines, new_partial}
+      {more_lines, new_partial} when length(lines) >= num_lines ->
+        [_first_line | rest_lines] = lines
+        next_initial_read(io,
+                          num_lines,
+                          {Enum.concat(rest_lines, more_lines), new_partial})
       {more_lines, new_partial} ->
-        next_initial_read(io, {Enum.concat(lines, more_lines), new_partial})
+        next_initial_read(io,
+                          num_lines,
+                          {Enum.concat(lines, more_lines), new_partial})
     end
   end
 
