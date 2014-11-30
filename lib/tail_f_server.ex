@@ -26,8 +26,8 @@ defmodule TailFServer do
                                  read_period: read_period,
                                  lines: lines,
                                  partial: partial}) do
-    {maybe_line, partial_out} = do_read(io, partial)
-    lines_out = ingest_line(lines, maybe_line)
+    {read_lines, partial_out} = do_read(io, partial)
+    lines_out = ingest_lines(lines, read_lines)
     {:noreply, %{state | lines: lines_out, partial: partial_out}, read_period}
   end
 
@@ -39,14 +39,14 @@ defmodule TailFServer do
   ############################################################
   # implementation
   defp do_read(io, partial) do
-    handle_read(IO.binread(io, :line), partial)
+    handle_read(IO.binread(io, :all), partial)
   end
 
   defp handle_read(:eof, partial), do: {nil, partial}
-  defp handle_read(string, partial) do
-    case String.ends_with?(string, "\n") do
-      true -> {partial <> String.rstrip(string), ""}
-      false -> {nil, partial <> string}
+  defp handle_read(data, partial) do
+    case String.ends_with?(data, "\n") do
+      true -> {String.split(partial <> String.rstrip(data), "\n"), ""}
+      false -> {[], partial <> data}
     end
   end
 
@@ -57,7 +57,11 @@ defmodule TailFServer do
     end
   end
 
-  defp ingest_line(lines, nil), do: lines
-  defp ingest_line(lines, line), do: :queue.in(line, lines)
+  defp ingest_lines(lines, lines_in) do
+    Enum.reduce(lines_in, lines,
+      fn(line, acc) ->
+        :queue.in(line, acc)
+      end)
+  end
 end
 
