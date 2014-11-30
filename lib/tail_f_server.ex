@@ -42,14 +42,26 @@ defmodule TailFServer do
   ############################################################
   # implementation
   defp do_initial_read(io, _num_lines) do
-    handle_read(IO.binread(io, :all), "")
+    next_initial_read(io, handle_read(IO.binread(io, :line), ""))
+  end
+
+  defp next_initial_read(_io, {[], partial}) do
+    {[], partial}
+  end
+  defp next_initial_read(io, {lines, partial}) do
+    case handle_read(IO.binread(io, :line), partial) do
+      {[], new_partial} ->
+        {lines, new_partial}
+      {more_lines, new_partial} ->
+        next_initial_read(io, {Enum.concat(lines, more_lines), new_partial})
+    end
   end
 
   defp do_read(io, partial) do
     handle_read(IO.binread(io, :all), partial)
   end
 
-  defp handle_read(:eof, partial), do: {nil, partial}
+  defp handle_read(:eof, partial), do: {[], partial}
   defp handle_read(data, partial) do
     new_partial = partial <> String.rstrip(data)
     maybe_lines = String.split(new_partial, "\n")
